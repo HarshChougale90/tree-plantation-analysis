@@ -29,5 +29,5 @@ Rule-based colour-index analysis, not a trained deep-learning model. Accuracy de
 ## Data and credits
 Esri World Imagery, OpenStreetMap contributors (ODbL), Nominatim, Leaflet.
 
-## License
+## License  
 MIT
