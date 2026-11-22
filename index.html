@@ -1,0 +1,1449 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tree Plantation Need Analysis</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+/* Layout: left nav + one working area. Map View follows the wireframe: square satellite panel on the left, green cover summary and area statistics on the right. */
+:root{
+  --bg:#f4f6f3;
+  --panel:#ffffff;
+  --ink:#1b2420;
+  --muted:#5a6a61;
+  --line:#d6ddd8;
+  --accent:#2c6b3c;
+  --accent-ink:#ffffff;
+  --accent-soft:#e2eee5;
+  --warn:#955700;
+  --warn-soft:#fbeed2;
+  --warn-mark:#f2a900;
+  --focus:#1c5fc4;
+  --font-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-data:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1511;--panel:#161e19;--ink:#e4ece6;--muted:#9bada2;--line:#28352d;
+    --accent:#6dc183;--accent-ink:#0b170f;--accent-soft:#1b2e21;
+    --warn:#f0b04a;--warn-soft:#33260c;--focus:#7db0ff;color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1511;--panel:#161e19;--ink:#e4ece6;--muted:#9bada2;--line:#28352d;
+  --accent:#6dc183;--accent-ink:#0b170f;--accent-soft:#1b2e21;
+  --warn:#f0b04a;--warn-soft:#33260c;--focus:#7db0ff;color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg);color:var(--ink);font:14px/1.5 var(--font-ui);
+  padding-block:20px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+h1{font-size:22px;line-height:1.25;margin:0 0 4px;font-weight:600;text-wrap:balance}
+h2{font-size:15px;margin:0 0 10px;font-weight:600;text-wrap:balance}
+p{margin:0 0 10px}
+.lead{color:var(--muted);max-width:65ch;margin:0 0 16px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.mono{font-family:var(--font-data);font-variant-numeric:tabular-nums}
+
+.app{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;align-items:start}
+.side{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px;position:sticky;top:max(12px,env(safe-area-inset-top,0px))}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;padding:2px 4px 12px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.brand svg{flex:none}
+.lg-a{fill:var(--accent)}
+.lg-b{fill:var(--line)}
+.nav{display:grid;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:0;background:none;color:var(--muted);font:inherit;text-align:left;border-radius:4px;cursor:pointer}
+.nav button:hover{background:var(--bg);color:var(--ink)}
+.nav button[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.nav svg{flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+main{min-width:0}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.stack{display:grid;gap:16px;min-width:0}
+.btn{font:inherit;padding:7px 12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:4px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+.homegrid{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,2fr);gap:16px;margin-bottom:16px}
+.kv{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;margin:0}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;text-align:right;font-family:var(--font-data);font-variant-numeric:tabular-nums}
+.classlist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 16px}
+.classlist li{display:flex;gap:8px;align-items:baseline}
+.dot{display:inline-block;width:10px;height:10px;border-radius:2px;flex:none}
+
+.mapgrid{display:grid;grid-template-columns:minmax(0,640px) minmax(280px,1fr);gap:20px;align-items:start}
+.mapcol,.sidecol{display:grid;gap:12px;min-width:0}
+.sidecol{gap:16px}
+.srcrow,.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tag{font:500 12px var(--font-data);padding:3px 8px;border-radius:3px;background:var(--warn-soft);color:var(--warn);max-width:100%;overflow-wrap:anywhere}
+.tag.up{background:var(--accent-soft);color:var(--accent)}
+.note{margin:0;font-size:12.5px;color:var(--muted)}
+.note.err{color:var(--warn)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;margin:0;padding:0;min-width:0;max-width:100%;overflow-x:auto}
+.seg label{position:relative;margin:0;display:block}
+.seg input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.seg span{display:block;padding:6px 12px;font-size:13px;color:var(--muted);background:var(--panel);border-right:1px solid var(--line);white-space:nowrap}
+.seg label:last-child span{border-right:0}
+.seg input:checked+span{background:var(--accent);color:var(--accent-ink);font-weight:500}
+.seg input:focus-visible+span{outline:2px solid var(--focus);outline-offset:-2px}
+.check{display:inline-flex;gap:6px;align-items:center;color:var(--muted);cursor:pointer}
+.check input{accent-color:var(--accent)}
+
+.frame{display:grid;grid-template-columns:22px minmax(0,1fr) 22px;grid-template-rows:14px auto 22px;gap:4px}
+.cols{grid-column:2;grid-row:1;display:flex}
+.rows{grid-column:1;grid-row:2;display:flex;flex-direction:column}
+.cols span,.rows span{flex:1;font:10px/1 var(--font-data);color:var(--muted);display:flex;align-items:center;justify-content:center;min-width:0}
+.rows span{justify-content:flex-end}
+.stage{grid-column:2;grid-row:2;aspect-ratio:1/1;max-width:100%;border:1px solid var(--line);background:var(--line)}
+.stage canvas{display:block;width:100%;height:100%;touch-action:pan-y}
+.stage canvas.paint{cursor:crosshair;touch-action:none}
+.stage canvas:not(.paint){cursor:pointer}
+.dim{display:flex;align-items:center;gap:8px;color:var(--muted);font:12px var(--font-data)}
+.dim::before,.dim::after{content:"";flex:1;border-top:1px solid var(--muted)}
+.dim.h{grid-column:2;grid-row:3}
+.dim.v{grid-column:3;grid-row:2;flex-direction:column}
+.dim.v::before,.dim.v::after{border-top:0;border-left:1px solid var(--muted)}
+.dim.v span{writing-mode:vertical-rl}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+.cellinfo{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:10px 12px;min-height:84px;display:grid;gap:2px;align-content:start}
+.cellinfo .status{color:var(--warn);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--panel);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.chip:hover{border-color:var(--accent)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:600}
+
+.big{font:600 44px/1 var(--font-data);color:var(--accent)}
+.big small{font:400 14px var(--font-ui);color:var(--muted);margin-left:6px}
+.meter{position:relative;height:10px;background:var(--line);border-radius:2px;margin:28px 0 10px}
+.meter .fill{height:100%;background:var(--accent);border-radius:2px 0 0 2px;transition:width .3s}
+.meter .tick{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--warn-mark)}
+.meter .tlabel{position:absolute;top:-26px;transform:translateX(-50%);font:11px var(--font-data);color:var(--warn);white-space:nowrap}
+
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th.n,td.n{text-align:right;font-family:var(--font-data);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.total td{font-weight:600;border-top:1px solid var(--muted);border-bottom:0}
+td .dot{margin-right:8px}
+
+.sites{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.sites button{display:grid;grid-template-columns:24px 38px minmax(0,1fr) auto;gap:8px;align-items:center;width:100%;padding:6px 8px;border:1px solid transparent;border-radius:4px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.sites button:hover,.sites button[aria-pressed="true"]{border-color:var(--line);background:var(--accent-soft)}
+.sites .what{min-width:0;font-size:13px}
+.sites .what small{display:block;color:var(--muted);font-size:12px}
+.rank{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--warn-mark);color:#2b1c00;font:600 11px var(--font-data)}
+
+.fields{display:grid;gap:14px;max-width:560px}
+.field{display:grid;gap:4px}
+.field label{font-weight:500}
+.field .hint{font-size:12.5px;color:var(--muted)}
+.field input,.field select{font:inherit;padding:7px 8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:4px;width:100%}
+.field input[type="range"]{padding:0;accent-color:var(--accent)}
+.field .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+.field output{font-family:var(--font-data);min-width:5ch;text-align:right}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+fieldset.group{border:1px solid var(--line);border-radius:6px;padding:14px;margin:0;display:grid;gap:14px;min-width:0}
+fieldset.group legend{padding:0 6px;font-weight:600}
+textarea{width:100%;font:12px/1.5 var(--font-data);background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px}
+.st{font:500 11px var(--font-data);padding:2px 6px;border-radius:3px;white-space:nowrap;display:inline-block}
+.st.ok{background:var(--accent-soft);color:var(--accent)}
+.st.part{background:var(--warn-soft);color:var(--warn)}
+.st.no{background:var(--line);color:var(--muted)}
+.sr{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+a{color:var(--accent)}
+.scanlog{list-style:none;margin:0;padding:0;display:grid;gap:5px;font-size:12.5px}
+.scanlog li{display:flex;gap:8px;align-items:baseline}
+.scanlog li span:last-child{min-width:0;overflow-wrap:anywhere}
+.st.bad{background:var(--warn-soft);color:var(--warn)}
+.stage{position:relative;isolation:isolate}
+#lmap{position:absolute;inset:0;z-index:0;background:var(--line);font:12px/1.4 var(--font-ui)}
+#lmap .rk{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#f2a900;color:#2b1c00;border:1.5px solid #3a2600;font:600 11px var(--font-data)}
+.frame.mapmode .cols,.frame.mapmode .rows,.frame.mapmode .dim{visibility:hidden}
+.txt{font:inherit;padding:7px 8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:4px;min-width:0}
+.swatch{display:inline-block;width:14px;height:10px;border-radius:2px;flex:none}
+@media (max-width:1000px){
+  .mapgrid{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:800px){
+  .app{grid-template-columns:minmax(0,1fr);gap:14px}
+  .side{position:static;display:grid;gap:8px;padding:10px}
+  .brand{border-bottom:0;margin:0;padding:0}
+  .nav{display:flex;overflow-x:auto;gap:4px}
+  .nav button{width:auto;white-space:nowrap}
+  .homegrid{grid-template-columns:minmax(0,1fr)}
+  .two{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.meter .fill{transition:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
+        <rect class="lg-a" x="2" y="2" width="6" height="6"/><rect class="lg-b" x="9" y="2" width="6" height="6"/><rect class="lg-a" x="16" y="2" width="6" height="6"/>
+        <rect class="lg-b" x="2" y="9" width="6" height="6"/><rect class="lg-a" x="9" y="9" width="6" height="6"/><rect class="lg-b" x="16" y="9" width="6" height="6"/>
+        <rect class="lg-b" x="2" y="16" width="6" height="6"/><rect class="lg-b" x="9" y="16" width="6" height="6"/><rect class="lg-a" x="16" y="16" width="6" height="6"/>
+      </svg>
+      <span>GreenScan 5×5</span>
+    </div>
+    <nav class="nav" id="nav" aria-label="Main">
+      <button type="button" data-view="home" aria-current="page"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7M5 10v10h14V10"/></svg>Home</button>
+      <button type="button" data-view="map"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/></svg>Map View</button>
+      <button type="button" data-view="reports"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"/></svg>Reports</button>
+      <button type="button" data-view="settings"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h8M18 7h2M4 17h2M12 17h8"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>Settings</button>
+      <button type="button" data-view="about"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>About</button>
+    </nav>
+  </aside>
+
+  <main>
+    <!-- HOME -->
+    <section id="view-home">
+      <h1>Tree Plantation Need Analysis</h1>
+      <p class="lead">Land use and green cover of a 5 km × 5 km area, worked out from satellite imagery, with a ranked list of places that need trees.</p>
+      <div class="homegrid">
+        <div class="panel">
+          <h2>Problem statement</h2>
+          <p>To analyze the land use and green cover within a 5 km × 5 km square area using satellite imagery and AI-based image analysis, identify features such as gardens, colleges, residential areas, malls, shops and parking areas, and determine locations where tree plantation is required due to insufficient green cover.</p>
+          <div class="actions">
+            <button type="button" class="btn primary" data-go="map">Open Map View</button>
+            <button type="button" class="btn" data-go="reports">Read the report</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Current result</h2>
+          <p class="note" id="homeSrc" style="margin-bottom:12px"></p>
+          <dl class="kv" id="homeKv"></dl>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Land use classes on the map</h2>
+        <ul class="classlist" id="homeClasses"></ul>
+      </div>
+    </section>
+
+    <!-- MAP VIEW -->
+    <section id="view-map" hidden>
+      <h1>Tree Plantation Need Analysis</h1>
+      <p class="lead">Map View of the 5 km × 5 km study area.</p>
+      <div class="mapgrid">
+        <div class="mapcol">
+          <div class="toolbar">
+            <fieldset class="seg" aria-label="Map view">
+              <label><input type="radio" name="mview" value="map" checked><span>Real map</span></label>
+              <label><input type="radio" name="mview" value="img"><span>Analysis image</span></label>
+            </fieldset>
+          </div>
+          <div id="pickBar" class="stack" style="gap:8px">
+            <form id="placeForm" class="actions" autocomplete="off">
+              <input class="txt" id="placeQ" type="text" placeholder="Search a place, or type latitude, longitude" aria-label="Search a place or type latitude and longitude" style="flex:1 1 220px">
+              <button type="submit" class="btn">Find</button>
+            </form>
+            <div class="actions">
+              <button type="button" class="btn primary" id="btnAnalyse">Scan this 5 km × 5 km area</button>
+              <span class="note">Dashed square centre: <span class="mono" id="pickCoord">–</span></span>
+            </div>
+            <ol class="scanlog" id="scanLog" hidden></ol>
+          </div>
+          <div class="srcrow">
+            <span class="tag" id="srcTag"></span>
+            <button type="button" class="btn" id="btnUpload">Upload satellite image</button>
+            <button type="button" class="btn" id="btnSample">New sample</button>
+            <input type="file" id="fileIn" accept="image/*" class="sr" tabindex="-1" aria-label="Choose a satellite image file">
+          </div>
+          <p class="note" id="srcNote"></p>
+          <div class="toolbar" id="mapLayerBar" hidden>
+            <fieldset class="seg" aria-label="Map layer on the real map">
+              <label><input type="radio" name="mlayer" value="need" checked><span>Plantation need</span></label>
+              <label><input type="radio" name="mlayer" value="landuse"><span>Land use</span></label>
+              <label><input type="radio" name="mlayer" value="green"><span>Green cover</span></label>
+              <label><input type="radio" name="mlayer" value="objects"><span>Objects</span></label>
+              <label><input type="radio" name="mlayer" value="none"><span>Satellite only</span></label>
+            </fieldset>
+          </div>
+          <div class="toolbar" id="layerBar">
+            <fieldset class="seg" aria-label="Map layer">
+              <label><input type="radio" name="layer" value="need" checked><span>Plantation need</span></label>
+              <label><input type="radio" name="layer" value="landuse"><span>Land use</span></label>
+              <label><input type="radio" name="layer" value="sat"><span>Satellite</span></label>
+            </fieldset>
+            <label class="check"><input type="checkbox" id="gridToggle" checked> Grid</label>
+          </div>
+          <div class="frame mapmode" id="frame">
+            <div class="cols" id="colLabels" aria-hidden="true"></div>
+            <div class="rows" id="rowLabels" aria-hidden="true"></div>
+            <div class="stage"><div id="lmap"></div><canvas id="map" hidden width="720" height="720" tabindex="0" role="img" aria-label="Satellite image of the 5 km by 5 km study area divided into a grid. Use the arrow keys to move between cells."></canvas></div>
+            <div class="dim v"><span>5 km</span></div>
+            <div class="dim h"><span>5 km</span></div>
+          </div>
+          <div class="legend" id="legend"></div>
+          <div class="cellinfo" id="cellInfo" aria-live="polite"></div>
+          <div id="toolsBox">
+            <p class="note" style="margin-bottom:6px">Label cells: pick a land use, then click or drag over cells. Pick Inspect to stop.</p>
+            <div class="chips" id="tools"></div>
+          </div>
+        </div>
+
+        <div class="sidecol">
+          <div class="panel" id="emptyPanel" hidden>
+            <h2>No area scanned yet</h2>
+            <p class="note">Search a place on the map, move the dashed square over your study area and press Scan. This panel then shows the green cover, the objects found (buildings, shops, colleges, malls, parking, trees) and where tree plantation is needed, with the percentage of green cover each block lacks.</p>
+          </div>
+          <div id="dataPanels" class="stack">
+          <div class="panel">
+            <h2>Green Cover Summary</h2>
+            <div class="big"><span id="greenPct">0</span><small>green</small></div>
+            <div class="meter" aria-hidden="true"><div class="fill" id="meterFill"></div><div class="tick" id="meterTick"><span class="tlabel" id="meterLabel"></span></div></div>
+            <p class="note" id="greenNote"></p>
+          </div>
+          <div class="panel" id="needPanel">
+            <h2>Plantation need</h2>
+            <p class="note" id="needNote" style="margin-bottom:10px"></p>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>Land use</th><th class="n">Blocks</th><th class="n">Area (ha)</th><th class="n">Need</th><th class="n">Trees</th></tr></thead>
+                <tbody id="needBody"></tbody>
+              </table>
+            </div>
+            <p class="note" style="margin-top:8px">Need is the extra green cover, in percentage points of a block's area, to reach the block minimum. Tree counts are estimates.</p>
+          </div>
+          <div class="panel" id="objPanel" hidden>
+            <h2>Objects found</h2>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>Object</th><th class="n">Count</th><th class="n">Area (ha)</th><th class="n">Share</th></tr></thead>
+                <tbody id="objBody"></tbody>
+              </table>
+            </div>
+            <p class="note" style="margin-top:8px">Counted from OpenStreetMap. Some features may be missing, so treat counts as a minimum.</p>
+          </div>
+          <div class="panel">
+            <h2>Area Statistics</h2>
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>Land use</th><th class="n">Area (ha)</th><th class="n">Share</th><th class="n">Green</th></tr></thead>
+                <tbody id="statsBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>Priority sites for planting</h2>
+            <p class="note" id="sitesNote" style="margin-bottom:10px"></p>
+            <ol class="sites" id="sites"></ol>
+          </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="view-reports" hidden>
+      <h1>Reports</h1>
+      <p class="lead">Figures for the current map. Copy them into your report or spreadsheet.</p>
+      <div class="stack">
+        <div class="panel">
+          <h2>Summary</h2>
+          <p id="repSummary"></p>
+          <div class="actions">
+            <button type="button" class="btn primary" id="dlCells">Download all data (CSV)</button>
+            <button type="button" class="btn" id="dlSites">Download priority sites (CSV)</button>
+            <button type="button" class="btn" id="dlObjects">Download objects (CSV)</button>
+            <button type="button" class="btn" id="dlReport">Download report (.txt)</button>
+            <button type="button" class="btn" id="copyReport">Copy report text</button>
+            <span class="note" id="copyMsg" role="status"></span>
+          </div>
+          <div id="copyFallback" hidden style="margin-top:12px">
+            <textarea id="fbText" readonly rows="8" aria-label="Text to copy"></textarea>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Land use</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Land use</th><th class="n">Cells</th><th class="n">Area (ha)</th><th class="n">Share</th><th class="n">Green area (ha)</th><th class="n">Green</th></tr></thead>
+              <tbody id="repClass"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Objects found</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Object</th><th class="n">Count</th><th class="n">Mapped area (ha)</th><th class="n">Share of area</th></tr></thead>
+              <tbody id="repObjects"></tbody>
+            </table>
+          </div>
+          <p class="note" style="margin-top:10px" id="repObjNote"></p>
+        </div>
+        <div class="panel">
+          <h2>Plantation need by land use</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Land use</th><th class="n">Blocks</th><th class="n">Area (ha)</th><th class="n">Average need</th><th class="n">Trees (est.)</th></tr></thead>
+              <tbody id="repNeed"></tbody>
+            </table>
+          </div>
+          <p class="note" style="margin-top:10px">Need is the extra green cover, in percentage points of a block's area, needed to reach the block minimum.</p>
+        </div>
+        <div class="panel">
+          <h2>Priority sites</h2>
+          <div class="tablewrap">
+            <table>
+              <thead id="repSitesHead"></thead>
+              <tbody id="repSites"></tbody>
+            </table>
+          </div>
+          <p class="note" style="margin-top:10px">Tree counts are planning estimates: the green cover a block lacks to reach the block minimum, divided by the canopy area of one tree (both set in Settings). Check sites on the ground before planting.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" hidden>
+      <h1>Settings</h1>
+      <p class="lead">Changes apply to the map straight away and are remembered in this browser.</p>
+      <form id="settingsForm" class="fields" autocomplete="off">
+        <fieldset class="group">
+          <legend>Study area</legend>
+          <div class="field">
+            <label for="sN">Grid resolution</label>
+            <select id="sN">
+              <option value="10">10 × 10 cells (500 m each)</option>
+              <option value="20">20 × 20 cells (250 m each)</option>
+              <option value="25">25 × 25 cells (200 m each)</option>
+            </select>
+            <span class="hint">Changing this rebuilds the sample area. Labels you painted on an uploaded image are cleared.</span>
+          </div>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Targets</legend>
+          <div class="field">
+            <label for="sBlock">Minimum green cover per block (%)</label>
+            <div class="row"><input type="range" id="sBlock" min="5" max="50" step="1"><output id="oBlock"></output></div>
+            <span class="hint">A block is flagged when its own cover and the average of the 3 × 3 blocks around it are both below this.</span>
+          </div>
+          <div class="field">
+            <label for="sOverall">Overall green cover target (%)</label>
+            <div class="row"><input type="range" id="sOverall" min="10" max="60" step="1"><output id="oOverall"></output></div>
+            <span class="hint">The National Forest Policy of India aims for one third (33%) of land under forest or tree cover.</span>
+          </div>
+          <div class="field">
+            <label for="sTopK">Priority sites to list</label>
+            <div class="row"><input type="range" id="sTopK" min="3" max="30" step="1"><output id="oTopK"></output></div>
+          </div>
+          <div class="field">
+            <label for="sCanopy">Canopy area of one mature tree (m²)</label>
+            <input type="number" id="sCanopy" min="5" max="150" step="1" inputmode="numeric">
+            <span class="hint">Used only to turn missing green area into a tree count.</span>
+          </div>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Satellite image analysis</legend>
+          <div class="field">
+            <label for="sZoom">Satellite image detail (real map)</label>
+            <select id="sZoom">
+              <option value="15">Standard (about 5 m per pixel, fewer tiles)</option>
+              <option value="16">High (about 2.4 m per pixel, four times the tiles)</option>
+            </select>
+            <span class="hint">Applies the next time you analyse an area.</span>
+          </div>
+          <div class="field">
+            <label for="sExg">Vegetation sensitivity (excess green threshold)</label>
+            <div class="row"><input type="range" id="sExg" min="0.02" max="0.30" step="0.01"><output id="oExg"></output></div>
+            <span class="hint">Lower counts paler or hazier greens as vegetation. Raise it if roofs or shadows are being counted. Compare the Satellite layer with the Land use layer.</span>
+          </div>
+        </fieldset>
+        <fieldset class="group">
+          <legend>Location of the area (optional)</legend>
+          <span class="hint">Enter the centre of the 5 km square to get latitude and longitude for each priority site.</span>
+          <div class="two">
+            <div class="field"><label for="sLat">Latitude</label><input type="text" id="sLat" inputmode="decimal" placeholder="decimal degrees"></div>
+            <div class="field"><label for="sLon">Longitude</label><input type="text" id="sLon" inputmode="decimal" placeholder="decimal degrees"></div>
+          </div>
+        </fieldset>
+        <div class="actions"><button type="button" class="btn" id="resetCfg">Reset to defaults</button></div>
+      </form>
+    </section>
+
+    <!-- ABOUT -->
+    <section id="view-about" hidden>
+      <h1>About</h1>
+      <p class="lead">What this project does and which steps of the methodology this page covers.</p>
+      <div class="stack">
+        <div class="panel">
+          <h2>Problem statement</h2>
+          <p>To analyze the land use and green cover within a 5 km × 5 km square area using satellite imagery and AI-based image analysis, identify features such as gardens, colleges, residential areas, malls, shops and parking areas, and determine locations where tree plantation is required due to insufficient green cover.</p>
+        </div>
+        <div class="panel">
+          <h2>Methodology</h2>
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>Step</th><th>In this page</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Define the study area of 5 km × 5 km</td><td>A fixed square split into a grid of cells. Cell size is set in Settings.</td><td><span class="st ok">Included</span></td></tr>
+                <tr><td>Acquire a suitable satellite image</td><td>Search a place on the real map, move the dashed 5 km square over your study area and press Scan. The imagery is Esri World Imagery, fetched tile by tile while you are online. A generated sample and image upload also work.</td><td><span class="st ok">Included</span></td></tr>
+                <tr><td>Pre-process the image and classify land</td><td>Land use per cell (garden, residential, college, mall, shop, parking) and the object counts come from OpenStreetMap map data. Green cover comes from the colours of the satellite image. You can correct any cell with the Label cells tool.</td><td><span class="st ok">Included</span></td></tr>
+                <tr><td>Train an AI model on the classified area and check accuracy</td><td>No trained model and no accuracy figure here. Land use is read from OpenStreetMap and green cover from colour analysis. Reports can download every cell as CSV if you want to train a model.</td><td><span class="st no">Not included</span></td></tr>
+                <tr><td>Green cover analysis</td><td>Green cover for the whole area and for each land use, against your target.</td><td><span class="st ok">Included</span></td></tr>
+                <tr><td>Identify tree plantation requirement</td><td>Blocks below the minimum, with low cover around them, are ranked as priority sites with an estimated tree count.</td><td><span class="st ok">Included</span></td></tr>
+                <tr><td>Generate the final map and web interface</td><td>This page: Map View, Reports and Settings.</td><td><span class="st ok">Included</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>How to read the numbers</h2>
+          <p>Every cell has a green cover value between 0% and 100%, the share of that cell covered by trees or vegetation. Area figures add these up. In the sample area the values are generated along with the picture. In an uploaded image they are measured as the share of pixels whose excess green index, 2G − R − B on normalised colours, is above the sensitivity setting.</p>
+          <p class="note">The sample area is example data and does not describe a real place. Real-map imagery is © Esri, Maxar, Earthstar Geographics and the GIS User Community; place search is by OpenStreetMap Nominatim. Land use and object counts come from OpenStreetMap, which volunteers map, so some features may be missing. Use the results for study and check sites on the ground.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+(function(){
+'use strict';
+//#PURE-START
+const S=720;
+const CLASSES={
+  garden:{label:'Garden / green space',color:'#2e9e4f',base:[0.78,0.17]},
+  residential:{label:'Residential',color:'#d9a066',base:[0.07,0.16]},
+  college:{label:'College / school',color:'#4a78c2',base:[0.38,0.20]},
+  mall:{label:'Mall',color:'#8a5bb5',base:[0.02,0.05]},
+  shop:{label:'Shops',color:'#d1517a',base:[0.02,0.07]},
+  parking:{label:'Parking',color:'#6f7b86',base:[0.01,0.06]},
+  builtup:{label:'Built-up (unlabelled)',color:'#9a9a9a',base:[0.05,0.05]},
+  other:{label:'Other / open land',color:'#b9ae8f',base:[0.05,0.10]}
+};
+const ORDER=['garden','residential','college','mall','shop','parking','other','builtup'];
+
+function mulberry32(a){return function(){a=(a+0x6D2B79F5)|0;let t=Math.imul(a^(a>>>15),1|a);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296}}
+function hash2(x,y,s){let h=(Math.imul(x|0,374761393)+Math.imul(y|0,668265263)+Math.imul(s|0,1442695041))|0;h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967296}
+function vnoise(x,y,s){const xi=Math.floor(x),yi=Math.floor(y);let fx=x-xi,fy=y-yi;fx=fx*fx*(3-2*fx);fy=fy*fy*(3-2*fy);const a=hash2(xi,yi,s),b=hash2(xi+1,yi,s),c=hash2(xi,yi+1,s),d=hash2(xi+1,yi+1,s);return a+(b-a)*fx+(c-a)*fy+(a-b-c+d)*fx*fy}
+function fbm(x,y,s){return vnoise(x,y,s)*.55+vnoise(x*2,y*2,s+1)*.3+vnoise(x*4,y*4,s+2)*.15}
+
+function genScene(N,seed){
+  const rng=mulberry32(seed*9973+17);
+  const cx=.5+(rng()-.5)*.16,cy=.5+(rng()-.5)*.16;
+  const cells=[];
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const u=(c+.5)/N,v=(r+.5)/N,dc=Math.hypot(u-cx,v-cy);
+    const n1=fbm(u*3.4,v*3.4,seed),n2=fbm(u*6+9,v*6+4,seed+5);
+    let cls='residential';
+    if(dc<.15||(dc<.28&&n2>.48))cls='shop';
+    if(n1>.63&&dc>.08)cls='garden';
+    cells.push({r,c,dc,cls,green:0,nb:0,flag:false,trees:0,rank:0,need:0,bld:0,shops:0,treesMapped:0,manual:false});
+  }
+  const at=(r,c)=>(r>=0&&c>=0&&r<N&&c<N)?cells[r*N+c]:null;
+  const size=Math.max(1,Math.round(N/10));
+  for(let k=0;k<2;k++){
+    for(let t=0;t<80;t++){
+      const r=Math.floor(rng()*(N-size+1)),c=Math.floor(rng()*(N-size+1));
+      const d=Math.hypot((c+size/2)/N-cx,(r+size/2)/N-cy);
+      if(d<.2||d>.44)continue;
+      let ok=true;
+      for(let i=0;i<size;i++)for(let j=0;j<size;j++){if(at(r+i,c+j).cls==='college')ok=false}
+      if(!ok)continue;
+      for(let i=0;i<size;i++)for(let j=0;j<size;j++){at(r+i,c+j).cls='college'}
+      break;
+    }
+  }
+  for(let k=0;k<2;k++){
+    for(let t=0;t<120;t++){
+      const r=Math.floor(rng()*N),c=Math.floor(rng()*N),q=at(r,c);
+      if(q.dc<.07||q.dc>.26||q.cls==='college'||q.cls==='garden'||q.cls==='mall')continue;
+      q.cls='mall';
+      const nbrs=[at(r-1,c),at(r+1,c),at(r,c-1),at(r,c+1)].filter(x=>x&&x.cls!=='college'&&x.cls!=='mall'&&x.cls!=='garden');
+      const take=Math.min(2,nbrs.length);
+      for(let m=0;m<take;m++){const j=Math.floor(rng()*nbrs.length);nbrs.splice(j,1)[0].cls='parking'}
+      break;
+    }
+  }
+  for(const q of cells){if(q.cls==='shop'&&rng()<.1)q.cls='parking'}
+  for(const q of cells){
+    const b=CLASSES[q.cls].base;
+    let g=b[0]+rng()*b[1];
+    if(q.cls==='residential')g+=Math.max(0,q.dc-.2)*.25;
+    q.green=Math.min(.97,Math.max(0,g));
+  }
+  return cells;
+}
+
+function analyse(cells,N,cfg){
+  const cellKm=5/N,cellHa=cellKm*cellKm*100,cellM2=cellHa*10000,totalHa=cellHa*N*N;
+  const thr=cfg.blockMin/100;
+  const byClass={};
+  let greenHa=0;
+  for(const c of cells){
+    let sum=0,n=0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      const rr=c.r+dr,cc=c.c+dc;
+      if(rr<0||cc<0||rr>=N||cc>=N)continue;
+      sum+=cells[rr*N+cc].green;n++;
+    }
+    c.nb=sum/n;
+    const b=byClass[c.cls]||(byClass[c.cls]={n:0,greenHa:0});
+    b.n++;b.greenHa+=c.green*cellHa;greenHa+=c.green*cellHa;
+    c.flag=c.cls!=='garden'&&c.green<thr&&c.nb<thr;
+    c.need=c.flag?Math.max(0,thr-c.green):0;
+    c.trees=c.flag?Math.round(c.need*cellM2/cfg.canopy):0;
+    c.rank=0;
+  }
+  const flagged=cells.filter(c=>c.flag).sort((a,b)=>(a.green+a.nb)-(b.green+b.nb)||a.r-b.r||a.c-b.c);
+  const top=flagged.slice(0,cfg.topK);
+  top.forEach((c,i)=>{c.rank=i+1});
+  const target=cfg.overall/100;
+  const gapHa=Math.max(0,target*totalHa-greenHa);
+  let flaggedTrees=0;for(const c of flagged)flaggedTrees+=c.trees;
+  const needByClass={};for(const c of flagged){const o=needByClass[c.cls]||(needByClass[c.cls]={n:0,sum:0,trees:0});o.n++;o.sum+=c.need;o.trees+=c.trees}
+  let topTrees=0;for(const c of top)topTrees+=c.trees;
+  return{cellKm,cellHa,cellM2,totalHa,greenHa,greenPct:greenHa/totalHa,byClass,flagged,top,flaggedHa:flagged.length*cellHa,flaggedTrees,topTrees,needByClass,gapHa,gapPts:Math.max(0,target-greenHa/totalHa),gapTrees:Math.round(gapHa*10000/cfg.canopy)};
+}
+
+function greenFractions(data,size,N,thr){
+  const cs=size/N,out=new Array(N*N).fill(0),cnt=new Array(N*N).fill(0);
+  for(let y=0;y<size;y+=2){
+    const r=Math.min(N-1,Math.floor(y/cs));
+    for(let x=0;x<size;x+=2){
+      const c=Math.min(N-1,Math.floor(x/cs));
+      const i=(y*size+x)*4,R=data[i],G=data[i+1],B=data[i+2],sum=R+G+B,k=r*N+c;
+      cnt[k]++;
+      if(sum>30&&(2*G-R-B)/sum>thr)out[k]++;
+    }
+  }
+  return out.map((v,k)=>cnt[k]?v/cnt[k]:0);
+}
+
+function latlon(c,cellKm,cfg){
+  const la=parseFloat(cfg.lat),lo=parseFloat(cfg.lon);
+  if(!isFinite(la)||!isFinite(lo)||Math.abs(la)>85||Math.abs(lo)>180)return null;
+  const dx=(c.c+.5)*cellKm-2.5,dy=2.5-(c.r+.5)*cellKm;
+  return{lat:la+dy/110.574,lon:lo+dx/(111.32*Math.cos(la*Math.PI/180))};
+}
+function bboxFor(lat,lon){const dl=2.5/110.574,dn=2.5/(111.32*Math.cos(lat*Math.PI/180));return{n:lat+dl,s:lat-dl,w:lon-dn,e:lon+dn}}
+function mercPx(lon,lat,z){const n=256*Math.pow(2,z),s=Math.sin(lat*Math.PI/180);return[(lon+180)/360*n,(0.5-Math.log((1+s)/(1-s))/(4*Math.PI))*n]}
+function inRing(lat,lon,ring){
+  let ins=false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const yi=ring[i][0],xi=ring[i][1],yj=ring[j][0],xj=ring[j][1];
+    if((yi>lat)!==(yj>lat)&&lon<(xj-xi)*(lat-yi)/(yj-yi)+xi)ins=!ins;
+  }
+  return ins;
+}
+function stitchRings(segs){
+  const same=(a,b)=>a[0]===b[0]&&a[1]===b[1];
+  const pool=segs.filter(s=>s.length>1).map(s=>s.slice()),rings=[];
+  while(pool.length){
+    let cur=pool.pop(),moved=true;
+    while(!same(cur[0],cur[cur.length-1])&&moved){
+      moved=false;
+      for(let i=0;i<pool.length;i++){
+        const s=pool[i],e=cur[cur.length-1];
+        if(same(e,s[0])){cur=cur.concat(s.slice(1));pool.splice(i,1);moved=true;break}
+        if(same(e,s[s.length-1])){cur=cur.concat(s.slice(0,-1).reverse());pool.splice(i,1);moved=true;break}
+        if(same(cur[0],s[s.length-1])){cur=s.slice(0,-1).concat(cur);pool.splice(i,1);moved=true;break}
+        if(same(cur[0],s[0])){cur=s.slice(1).reverse().concat(cur);pool.splice(i,1);moved=true;break}
+      }
+    }
+    rings.push(cur);
+  }
+  return rings;
+}
+function catOf(t){
+  if(!t)return null;
+  const am=t.amenity;
+  if(am==='college'||am==='university')return'college';
+  if(am==='school')return'school';
+  if(am==='parking')return'parking';
+  if(t.shop==='mall')return'mall';
+  if(t.shop)return'shop';
+  if(t.natural==='tree')return'tree';
+  const lei=t.leisure,lu=t.landuse,nat=t.natural;
+  if(['park','garden','playground','pitch','recreation_ground','nature_reserve','golf_course'].includes(lei))return'green';
+  if(['forest','grass','meadow','recreation_ground','village_green','orchard','cemetery','allotments'].includes(lu))return'green';
+  if(['wood','scrub','grassland'].includes(nat))return'green';
+  if(lu==='residential')return'residential';
+  if(lu==='commercial'||lu==='retail')return'commercial';
+  if(lu==='industrial')return'industrial';
+  return null;
+}
+const CAT_CLASS={college:'college',school:'college',mall:'mall',shop:'shop',commercial:'shop',parking:'parking',green:'garden',residential:'residential',industrial:'other'};
+const PREC=['mall','college','school','parking','shop','green','commercial','residential','industrial'];
+function parseOsm(json){
+  const polys=[],pts=[];
+  for(const e of (json.elements||[])){
+    const cat=catOf(e.tags);if(!cat)continue;
+    if(e.type==='node'){if(isFinite(e.lat)&&isFinite(e.lon))pts.push({cat,lat:e.lat,lon:e.lon});continue}
+    let rings=[];
+    if(e.type==='way'&&e.geometry)rings=[e.geometry.map(p=>[p.lat,p.lon])];
+    else if(e.type==='relation'&&e.members){
+      rings=stitchRings(e.members.filter(m=>m.role==='outer'&&m.geometry).map(m=>m.geometry.map(p=>[p.lat,p.lon])));
+    }
+    let rep=null;
+    for(const ring of rings){
+      if(ring.length<3)continue;
+      let a=1e9,b=1e9,c=-1e9,d=-1e9,sl=0,so=0;
+      for(const q of ring){if(q[0]<a)a=q[0];if(q[1]<b)b=q[1];if(q[0]>c)c=q[0];if(q[1]>d)d=q[1];sl+=q[0];so+=q[1]}
+      polys.push({cat,ring,bb:[a,b,c,d]});
+      if(!rep)rep={lat:sl/ring.length,lon:so/ring.length};
+    }
+    if(!rep&&e.center)rep={lat:e.center.lat,lon:e.center.lon};
+    if(rep)pts.push({cat,lat:rep.lat,lon:rep.lon});
+  }
+  return{polys,pts};
+}
+function classifyCells(N,b,parsed,bcenters,cellM2){
+  const byCat={};
+  for(const p of parsed.polys)(byCat[p.cat]||(byCat[p.cat]=[])).push(p);
+  const K=5,dLat=(b.n-b.s)/N,dLon=(b.e-b.w)/N,out=new Array(N*N),cov={};
+  let totalPts=0;
+  const cellOf=(lat,lon)=>{const r=Math.floor((b.n-lat)/dLat),c=Math.floor((lon-b.w)/dLon);return(r<0||c<0||r>=N||c>=N)?-1:r*N+c};
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const sc={};let greenPts=0;
+    for(let i=0;i<K;i++)for(let j=0;j<K;j++){
+      const lat=b.n-(r+(i+.5)/K)*dLat,lon=b.w+(c+(j+.5)/K)*dLon;
+      totalPts++;
+      let first=null;
+      for(const cat of PREC){
+        const arr=byCat[cat];if(!arr)continue;
+        let hit=false;
+        for(const p of arr){const bb=p.bb;if(lat<bb[0]||lat>bb[2]||lon<bb[1]||lon>bb[3])continue;if(inRing(lat,lon,p.ring)){hit=true;break}}
+        if(hit){cov[cat]=(cov[cat]||0)+1;if(!first)first=cat;if(cat==='green')greenPts++}
+      }
+      if(first){const cl=CAT_CLASS[first];sc[cl]=(sc[cl]||0)+1}
+    }
+    out[r*N+c]={r,c,sc,greenPts:greenPts/(K*K),cnt:{},bld:0};
+  }
+  for(const p of parsed.pts){const i=cellOf(p.lat,p.lon);if(i<0)continue;const k=out[i].cnt;k[p.cat]=(k[p.cat]||0)+1}
+  for(const q of bcenters){const i=cellOf(q[0],q[1]);if(i>=0)out[i].bld++}
+  for(const o of out){
+    const sc=o.sc,k=o.cnt,add=(cl,v)=>{sc[cl]=(sc[cl]||0)+v};
+    if(k.mall)add('mall',30+k.mall*5);
+    if(k.college)add('college',6*k.college);
+    if(k.school)add('college',3*k.school);
+    if(k.parking)add('parking',3*k.parking);
+    if((k.shop||0)>=4)add('shop',k.shop*2);
+    if(o.bld>=3)add('residential',Math.min(o.bld,30)*.3);
+    let best=null,bv=0;for(const cl in sc){if(sc[cl]>bv){bv=sc[cl];best=cl}}
+    o.cls=best||'other';
+    o.gOsm=Math.min(1,o.greenPts+(k.tree||0)*20/cellM2);
+  }
+  return{cells:out,cov,totalPts};
+}
+function objectRows(counts,bcount,cov,totalPts,totalHa){
+  const ha=cat=>(cov[cat]||0)/totalPts*totalHa;
+  const n=cat=>counts[cat]||0;
+  return[
+    {key:'building',label:'Buildings',count:bcount,ha:null},
+    {key:'residential',label:'Residential areas (mapped)',count:n('residential'),ha:ha('residential')},
+    {key:'green',label:'Gardens, parks and green areas',count:n('green'),ha:ha('green')},
+    {key:'tree',label:'Individually mapped trees',count:n('tree'),ha:null},
+    {key:'college',label:'Colleges and universities',count:n('college'),ha:ha('college')},
+    {key:'school',label:'Schools',count:n('school'),ha:ha('school')},
+    {key:'mall',label:'Malls',count:n('mall'),ha:ha('mall')},
+    {key:'shop',label:'Shops',count:n('shop'),ha:null},
+    {key:'commercial',label:'Commercial and retail areas (mapped)',count:n('commercial'),ha:ha('commercial')},
+    {key:'parking',label:'Parking lots',count:n('parking'),ha:ha('parking')}
+  ];
+}
+//#PURE-END
+
+const $=id=>document.getElementById(id);
+const fmt=(n,d=0)=>Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const pc=(f,d=0)=>fmt(f*100,d)+'%';
+const ref=c=>String.fromCharCode(65+c.c)+(c.r+1);
+function pos(c,km){const x0=c.c*km,y0=c.r*km;return'x '+x0.toFixed(2)+'–'+(x0+km).toFixed(2)+' km, y '+y0.toFixed(2)+'–'+(y0+km).toFixed(2)+' km'}
+
+/* ---------- settings ---------- */
+const DEF={N:20,blockMin:20,overall:33,topK:12,canopy:30,exg:0.08,zoom:15,lat:'',lon:''};
+function sanitize(o){
+  const n=(v,lo,hi,d)=>{v=Number(v);return isFinite(v)?Math.min(hi,Math.max(lo,v)):d};
+  return{N:[10,20,25].includes(Number(o.N))?Number(o.N):20,blockMin:n(o.blockMin,5,50,20),overall:n(o.overall,10,60,33),topK:Math.round(n(o.topK,3,30,12)),canopy:n(o.canopy,5,150,30),exg:n(o.exg,0.02,0.3,0.08),zoom:[15,16].includes(Number(o.zoom))?Number(o.zoom):15,lat:String(o.lat==null?'':o.lat),lon:String(o.lon==null?'':o.lon)};
+}
+function loadCfg(){let o={};try{o=JSON.parse(localStorage.getItem('tpna-cfg')||'{}')||{}}catch(e){}return sanitize(Object.assign({},DEF,o))}
+function saveCfg(){try{localStorage.setItem('tpna-cfg',JSON.stringify(cfg))}catch(e){}}
+let cfg=loadCfg();
+
+/* ---------- state ---------- */
+const st={mode:'sample',seed:11,N:cfg.N,cells:[],res:null,layer:'need',grid:true,tool:null,sel:null,hover:null,img:null,fileName:'',view:'home',mview:'map',real:null,osmRaw:null,objects:null,mlayer:'need'};
+const cv=$('map'),ctx=cv.getContext('2d');
+const base=document.createElement('canvas');base.width=S;base.height=S;
+const bctx=base.getContext('2d');
+
+/* ---------- sample picture ---------- */
+const ROAD='#595c5a',TREE=['#2f6a34','#3b7a3a','#4a8a42'],ROOF=['#b4654a','#c9c3b6','#9a9a98','#d6d0c2','#a9553f','#8e8b86'];
+function drawCell(g,cell,N,seed){
+  const cs=S/N,x=cell.c*cs,y=cell.r*cs,ins=cs*.07;
+  const bx=x+ins,by=y+ins,bw=cs-2*ins,bh=cs-2*ins;
+  const rng=mulberry32(Math.floor(hash2(cell.c*31+cell.cls.length,cell.r,seed)*4294967296));
+  const rect=(col,rx,ry,rw,rh)=>{g.fillStyle=col;g.fillRect(rx,ry,rw,rh)};
+  const trees=(frac,rad)=>{
+    const n=Math.min(70,Math.round(frac*bw*bh/(Math.PI*rad*rad)));
+    for(let i=0;i<n;i++){g.fillStyle=TREE[Math.floor(rng()*3)];g.beginPath();g.arc(bx+rng()*bw,by+rng()*bh,rad*(.8+rng()*.5),0,6.2832);g.fill()}
+  };
+  rect(ROAD,x,y,cs,cs);
+  switch(cell.cls){
+    case'garden':
+      rect('#5d9548',bx,by,bw,bh);
+      for(let i=0;i<3;i++){g.fillStyle='#72aa5c';g.beginPath();g.ellipse(bx+rng()*bw,by+rng()*bh,bw*.22,bh*.16,rng()*3,0,6.2832);g.fill()}
+      g.strokeStyle='#d2c9a6';g.lineWidth=Math.max(1,cs*.05);g.beginPath();g.moveTo(bx,by+bh*.7);g.quadraticCurveTo(bx+bw*.5,by+bh*.2,bx+bw,by+bh*.5);g.stroke();
+      trees(cell.green*.9,cs*.08);
+      break;
+    case'residential':case'builtup':{
+      rect(cell.cls==='builtup'?'#8f8f8c':'#9a9684',bx,by,bw,bh);
+      const k=Math.max(2,Math.round(cs/9)),hw=bw/k;
+      for(let i=0;i<k;i++)for(let j=0;j<k;j++){if(rng()<.88)rect(ROOF[Math.floor(rng()*ROOF.length)],bx+i*hw+hw*.18,by+j*hw+hw*.18,hw*.62,hw*.58)}
+      trees(cell.green,cs*.075);
+      break;}
+    case'shop':{
+      rect('#8b8d8c',bx,by,bw,bh);
+      for(let i=0;i<2;i++)for(let j=0;j<3;j++){if(rng()<.92)rect(ROOF[1+Math.floor(rng()*4)],bx+bw*.06+i*bw*.48,by+bh*.06+j*bh*.32,bw*.4,bh*.24)}
+      trees(cell.green,cs*.07);
+      break;}
+    case'mall':
+      rect('#6a6d6e',bx,by,bw,bh);
+      rect('#d8d5cb',bx+bw*.12,by+bh*.12,bw*.76,bh*.5);
+      rect('#c2beb2',bx+bw*.2,by+bh*.22,bw*.6,bh*.12);
+      for(let i=1;i<8;i++)rect('rgba(235,235,235,.75)',bx+i*bw/8,by+bh*.7,1,bh*.25);
+      trees(cell.green,cs*.06);
+      break;
+    case'parking':{
+      rect('#4e5153',bx,by,bw,bh);
+      const slots=6;
+      for(let i=0;i<=slots;i++)rect('rgba(235,235,235,.8)',bx+i*bw/slots,by+bh*.08,1,bh*.84);
+      for(let i=0;i<slots;i++){if(rng()<.65)rect(['#c0c4c8','#2d3a52','#a33b3b','#e9e9e4','#3c3c3c'][Math.floor(rng()*5)],bx+i*bw/slots+bw*.03,by+bh*(rng()<.5?.14:.55),bw/slots*.7,bh*.3)}
+      trees(cell.green,cs*.06);
+      break;}
+    case'college':
+      rect('#7aa862',bx,by,bw,bh);
+      rect('#d3c8a9',bx+bw*.08,by+bh*.1,bw*.55,bh*.2);
+      rect('#d3c8a9',bx+bw*.08,by+bh*.1,bw*.18,bh*.5);
+      rect('#c9bd9a',bx+bw*.62,by+bh*.55,bw*.3,bh*.3);
+      g.fillStyle='#b5694a';g.beginPath();g.ellipse(bx+bw*.38,by+bh*.7,bw*.24,bh*.17,0,0,6.2832);g.fill();
+      g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=1;g.stroke();
+      trees(cell.green*.8,cs*.07);
+      break;
+  }
+  if(cell.c>0&&cell.c%5===0)rect(ROAD,x,y,cs*.1,cs);
+  if(cell.r>0&&cell.r%5===0)rect(ROAD,x,y,cs,cs*.1);
+}
+function paintSampleBase(){bctx.fillStyle=ROAD;bctx.fillRect(0,0,S,S);for(const c of st.cells)drawCell(bctx,c,st.N,st.seed)}
+
+/* ---------- build / analyse ---------- */
+function afterChange(){st.res=analyse(st.cells,st.N,cfg);renderAll()}
+function newSample(){st.mode='sample';st.real=null;st.osmRaw=null;st.objects=null;st.img=null;st.fileName='';st.sel=null;st.hover=null;st.cells=genScene(st.N,st.seed);paintSampleBase();afterChange()}
+function buildFromImage(){if(st.real)buildFromScan();else buildPlain()}
+function buildPlain(){
+  const N=st.N,g=greenFractions(st.img,S,N,cfg.exg),old=st.cells;
+  st.cells=g.map((v,k)=>{
+    const prev=(old.length===N*N&&old[k].manual)?old[k]:null;
+    return{r:Math.floor(k/N),c:k%N,dc:0,green:v,nb:0,flag:false,trees:0,rank:0,need:0,bld:0,shops:0,treesMapped:0,manual:!!prev,cls:prev?prev.cls:(v>=.5?'garden':'builtup')};
+  });
+  afterChange();
+}
+function setNote(msg,isErr){const n=$('srcNote');n.textContent=msg;n.classList.toggle('err',!!isErr)}
+function useImage(file){
+  if(!file)return;
+  if(!/^image\//.test(file.type)){setNote('That file is not an image. Choose a PNG or JPG.',true);return}
+  const fr=new FileReader();
+  fr.onerror=()=>setNote('The file could not be read.',true);
+  fr.onload=()=>{
+    const img=new Image();
+    img.onerror=()=>setNote('The image could not be decoded. Try a PNG or JPG.',true);
+    img.onload=()=>{
+      const w=img.naturalWidth,h=img.naturalHeight,s=Math.min(w,h);
+      bctx.drawImage(img,(w-s)/2,(h-s)/2,s,s,0,0,S,S);
+      st.img=bctx.getImageData(0,0,S,S).data;
+      st.mode='upload';st.real=null;st.osmRaw=null;st.objects=null;st.fileName=file.name;st.sel=null;st.hover=null;st.cells=[];
+      buildFromImage();
+    };
+    img.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+/* ---------- drawing the map ---------- */
+function hexA(h,a){const n=parseInt(h.slice(1),16);return'rgba('+(n>>16)+','+((n>>8)&255)+','+(n&255)+','+a+')'}
+function drawMap(){
+  const N=st.N,cs=S/N,R=st.res;
+  ctx.drawImage(base,0,0);
+  if(st.layer==='landuse'){for(const c of st.cells){ctx.fillStyle=hexA(CLASSES[c.cls].color,.6);ctx.fillRect(c.c*cs,c.r*cs,cs,cs)}}
+  if(st.layer==='need'){for(const c of R.flagged){ctx.fillStyle='rgba(242,169,0,'+(c.rank?.42:.24)+')';ctx.fillRect(c.c*cs,c.r*cs,cs,cs)}}
+  if(st.grid){
+    ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=1;ctx.beginPath();
+    for(let i=1;i<N;i++){const p=Math.round(i*cs)+.5;ctx.moveTo(p,0);ctx.lineTo(p,S);ctx.moveTo(0,p);ctx.lineTo(S,p)}
+    ctx.stroke();
+  }
+  if(st.layer==='need'){
+    const rad=Math.min(11,cs*.3);
+    ctx.font='600 '+Math.round(rad*1.05)+'px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.textBaseline='middle';
+    for(const c of R.top){
+      const x=c.c*cs,y=c.r*cs;
+      ctx.strokeStyle='#f2a900';ctx.lineWidth=2.5;ctx.strokeRect(x+2,y+2,cs-4,cs-4);
+      ctx.beginPath();ctx.arc(x+cs/2,y+cs/2,rad,0,6.2832);ctx.fillStyle='#f2a900';ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#3a2600';ctx.stroke();
+      ctx.fillStyle='#2b1c00';ctx.fillText(String(c.rank),x+cs/2,y+cs/2+.5);
+    }
+  }
+  if(st.sel!=null){
+    const c=st.cells[st.sel],x=c.c*cs,y=c.r*cs;
+    ctx.lineWidth=4;ctx.strokeStyle='rgba(0,0,0,.75)';ctx.strokeRect(x+1,y+1,cs-2,cs-2);
+    ctx.lineWidth=2;ctx.strokeStyle='#ffffff';ctx.strokeRect(x+1,y+1,cs-2,cs-2);
+  }
+  ctx.lineWidth=1;ctx.strokeStyle='rgba(0,0,0,.5)';ctx.strokeRect(.5,.5,S-1,S-1);
+}
+
+/* ---------- rendering the page ---------- */
+function dotFor(k){return'<span class="dot" style="background:'+CLASSES[k].color+'"></span>'}
+function presentClasses(){return ORDER.filter(k=>st.res.byClass[k])}
+
+function renderSource(){
+  const tag=$('srcTag'),up=st.mode==='upload';
+  tag.textContent=up?st.fileName:'Example data (generated)';
+  tag.classList.toggle('up',up);
+  $('btnSample').textContent=up?'Use sample area':'New sample';
+  $('btnUpload').textContent=up?'Upload another image':'Upload an image';
+  let msg;
+  if(st.real)msg='Scan of the 5 km square centred on '+st.real.lat.toFixed(5)+', '+st.real.lon.toFixed(5)+'. '+(st.real.osmOk?'Land use and objects come from OpenStreetMap. ':'OpenStreetMap could not be reached, so land use is not available. ')+(st.real.imgOk?'Green cover is measured from the satellite colours. ':'Green cover is estimated from mapped parks, gardens and trees only, so it is probably too low. ')+'Click a cell to inspect it.';
+  else if(up)msg='Green cover is measured from the image colours. Gardens, colleges, malls, shops and parking come from your labels. The image is cropped to a square from its centre.';
+  else if(st.mview==='map')msg='The panels on the right still show the generated example area. Search a place, put the dashed square over your study area, then press Scan.';
+  else msg='This is a generated sample area, not a real place. Use the Real map tab to analyse a real 5 km square, or upload your own image.';
+  setNote(msg,false);
+}
+function renderSummary(){
+  const R=st.res;
+  $('greenPct').textContent=fmt(R.greenPct*100,1)+'%';
+  $('meterFill').style.width=Math.min(100,R.greenPct*100)+'%';
+  const t=$('meterTick');t.style.left='calc('+cfg.overall+'% - 1px)';
+  $('meterLabel').textContent='target '+cfg.overall+'%';
+  $('greenNote').textContent=R.gapHa>0
+    ?fmt(R.greenHa,0)+' ha of '+fmt(R.totalHa,0)+' ha is green. That is '+fmt(R.gapHa,0)+' ha short of the '+cfg.overall+'% target, about '+fmt(R.gapTrees)+' trees at '+fmt(cfg.canopy)+' m² of canopy each.'
+    :fmt(R.greenHa,0)+' ha of '+fmt(R.totalHa,0)+' ha is green. The area meets the '+cfg.overall+'% target.';
+}
+function renderStats(){
+  const R=st.res;
+  let h='';
+  for(const k of presentClasses()){
+    const b=R.byClass[k],ha=b.n*R.cellHa;
+    h+='<tr><td>'+dotFor(k)+CLASSES[k].label+'</td><td class="n">'+fmt(ha,1)+'</td><td class="n">'+pc(ha/R.totalHa,1)+'</td><td class="n">'+pc(b.greenHa/ha,0)+'</td></tr>';
+  }
+  h+='<tr class="total"><td>Total</td><td class="n">'+fmt(R.totalHa,1)+'</td><td class="n">100%</td><td class="n">'+pc(R.greenPct,0)+'</td></tr>';
+  $('statsBody').innerHTML=h;
+}
+function renderSites(){
+  const R=st.res,ul=$('sites');
+  $('sitesNote').textContent=R.flagged.length
+    ?R.flagged.length+' blocks ('+fmt(R.flaggedHa,0)+' ha) are below the '+cfg.blockMin+'% block minimum with low cover around them. The '+R.top.length+' lowest are ranked here, about '+fmt(R.topTrees)+' trees in total.'
+    :'No block is below the '+cfg.blockMin+'% minimum with low cover around it.';
+  ul.innerHTML='';
+  for(const c of R.top){
+    const li=document.createElement('li'),b=document.createElement('button');
+    b.type='button';b.setAttribute('aria-pressed',String(st.cells[st.sel]===c));
+    b.innerHTML='<span class="rank">'+c.rank+'</span><span class="mono">'+ref(c)+'</span><span class="what">'+CLASSES[c.cls].label+'<small>green '+pc(c.green)+' → '+cfg.blockMin+'% · around '+pc(c.nb)+'</small></span><span class="mono small" style="text-align:right">+'+fmt(c.need*100,0)+'%<br>≈ '+fmt(c.trees)+' trees</span>';
+    b.addEventListener('click',()=>{st.sel=st.cells.indexOf(c);st.hover=null;renderInfo();drawMap();renderSites()});
+    li.appendChild(b);ul.appendChild(li);
+  }
+}
+function renderLegend(){
+  const el=$('legend');
+  if(st.mview==='map')el.innerHTML=mapLegend();
+  else if(st.layer==='landuse')el.innerHTML=presentClasses().map(k=>'<span>'+dotFor(k)+CLASSES[k].label+'</span>').join('');
+  else if(st.layer==='need')el.innerHTML='<span><span class="dot" style="background:#f2a900"></span>Ranked priority site</span><span><span class="dot" style="background:rgba(242,169,0,.45)"></span>Below the block minimum</span>';
+  else el.innerHTML='<span>Imagery only. Cells in the grid are '+fmt(st.res.cellKm*1000)+' m wide.</span>';
+}
+function renderInfo(){
+  const el=$('cellInfo'),R=st.res;
+  const i=st.hover!=null?st.hover:st.sel,c=i!=null?st.cells[i]:null;
+  if(!c){el.innerHTML='<span class="muted">Hover or tap a cell to see its details.</span>';return}
+  let status;
+  if(c.flag)status=(c.rank?'Priority site #'+c.rank+'. ':'')+'Needs +'+fmt(c.need*100,0)+'% green cover to reach '+cfg.blockMin+'%, about '+fmt(c.trees)+' trees.';
+  else if(c.cls==='garden')status='Green space';
+  else if(c.green>=cfg.blockMin/100)status='Meets the '+cfg.blockMin+'% minimum';
+  else status='Block is low but the cells around it have enough green cover';
+  el.innerHTML='<div><strong class="mono">'+ref(c)+'</strong> · '+CLASSES[c.cls].label+'</div><div class="mono small muted">'+pos(c,R.cellKm)+'</div><div>Green cover: block '+pc(c.green)+', around it '+pc(c.nb)+'</div>'+(st.real?'<div class="small muted">Mapped in this cell: '+c.bld+' buildings, '+c.shops+' shops, '+c.treesMapped+' trees</div>':'')+'<div class="'+(c.flag?'status':'muted')+'">'+status+'</div>';
+}
+function renderHome(){
+  const R=st.res;
+  $('homeSrc').textContent=st.real?'Real satellite imagery: '+st.fileName:(st.mode==='upload'?'Uploaded image: '+st.fileName:'Showing the generated sample area. Open Map View to pick a real area.');
+  const rows=[['Green cover',pc(R.greenPct,1)],['Target',cfg.overall+'%'],['Blocks below minimum',fmt(R.flagged.length)+' of '+fmt(st.cells.length)],['Priority sites listed',fmt(R.top.length)],['Trees for those sites (est.)','≈ '+fmt(R.topTrees)]];
+  const big=presentClasses().sort((a,b)=>R.byClass[b].n-R.byClass[a].n)[0];
+  rows.push(['Largest land use',CLASSES[big].label]);
+  if(st.objects){const bl=st.objects.find(o=>o.key==='building');rows.push(['Buildings mapped',bl.count==null?'n/a':fmt(bl.count)])}
+  $('homeKv').innerHTML=rows.map(r=>'<dt>'+r[0]+'</dt><dd>'+r[1]+'</dd>').join('');
+}
+const BLURB={garden:'Parks, lawns and tree-covered open space',residential:'Housing blocks with rooftops and street trees',college:'Campus buildings, grounds and playgrounds',mall:'Large commercial buildings',shop:'Dense shop rows and markets',parking:'Paved parking lots and bays'};
+function buildHomeClasses(){$('homeClasses').innerHTML=ORDER.slice(0,6).map(k=>'<li>'+dotFor(k)+'<span><strong>'+CLASSES[k].label+'</strong> <span class="muted">'+BLURB[k]+'</span></span></li>').join('')}
+
+function siteRows(){
+  const R=st.res;
+  return R.top.map(c=>{const ll=latlon(c,R.cellKm,cfg);return{rank:c.rank,ref:ref(c),pos:pos(c,R.cellKm),lat:ll?ll.lat.toFixed(5):'',lon:ll?ll.lon.toFixed(5):'',link:ll?'https://www.google.com/maps?q='+ll.lat.toFixed(5)+','+ll.lon.toFixed(5)+'&t=k':'',cls:CLASSES[c.cls].label,green:c.green,nb:c.nb,need:c.need,trees:c.trees}});
+}
+function summaryText(){
+  const R=st.res;
+  return'The '+fmt(R.totalHa,0)+' ha study area has '+fmt(R.greenPct*100,1)+'% green cover ('+fmt(R.greenHa,0)+' ha), '+(R.gapHa>0?'below':'at or above')+' the '+cfg.overall+'% target'+(R.gapHa>0?' by '+fmt(R.gapPts*100,1)+' percentage points ('+fmt(R.gapHa,0)+' ha)':'')+'. '
+    +R.flagged.length+' of '+st.cells.length+' blocks ('+fmt(R.flaggedHa,0)+' ha) fall below the '+cfg.blockMin+'% block minimum with low cover around them. The '+R.top.length+' lowest-ranked sites need about '+fmt(R.topTrees)+' trees to reach the minimum, and all flagged blocks about '+fmt(R.flaggedTrees)+'.';
+}
+function objRowsHtml(rows,totalHa){
+  return rows.map(o=>'<tr><td>'+o.label+'</td><td class="n">'+(o.count==null?'n/a':fmt(o.count))+'</td><td class="n">'+(o.ha==null?'–':fmt(o.ha,1))+'</td><td class="n">'+(o.ha==null?'–':pc(o.ha/totalHa,1))+'</td></tr>').join('');
+}
+function needRowsHtml(R){
+  let h='',tn=0,ts=0,tt=0;
+  for(const k of presentClasses()){
+    const o=R.needByClass[k];if(!o)continue;
+    tn+=o.n;ts+=o.sum;tt+=o.trees;
+    h+='<tr><td>'+dotFor(k)+CLASSES[k].label+'</td><td class="n">'+o.n+'</td><td class="n">'+fmt(o.n*R.cellHa,1)+'</td><td class="n">+'+fmt(o.sum/o.n*100,0)+'%</td><td class="n">'+fmt(o.trees)+'</td></tr>';
+  }
+  if(!tn)return'<tr><td colspan="5" class="muted">No block is below the minimum.</td></tr>';
+  return h+'<tr class="total"><td>All flagged blocks</td><td class="n">'+tn+'</td><td class="n">'+fmt(tn*R.cellHa,1)+'</td><td class="n">+'+fmt(ts/tn*100,0)+'%</td><td class="n">'+fmt(tt)+'</td></tr>';
+}
+function renderNeed(){
+  const R=st.res;
+  $('needNote').textContent=R.gapHa>0
+    ?'The whole area needs +'+fmt(R.gapPts*100,1)+' percentage points of green cover ('+fmt(R.gapHa,0)+' ha) to reach the '+cfg.overall+'% target. Blocks below the '+cfg.blockMin+'% minimum, by land use:'
+    :'The whole area meets the '+cfg.overall+'% target. Blocks below the '+cfg.blockMin+'% minimum, by land use:';
+  $('needBody').innerHTML=needRowsHtml(R);
+}
+function renderObjects(){
+  const has=!!st.objects;
+  $('objPanel').hidden=!has;
+  if(has)$('objBody').innerHTML=objRowsHtml(st.objects,st.res.totalHa);
+}
+function renderReports(){
+  const R=st.res,rows=siteRows(),hasLL=rows.some(r=>r.lat);
+  $('repSummary').textContent=summaryText();
+  $('repClass').innerHTML=presentClasses().map(k=>{const b=R.byClass[k],ha=b.n*R.cellHa;return'<tr><td>'+dotFor(k)+CLASSES[k].label+'</td><td class="n">'+b.n+'</td><td class="n">'+fmt(ha,1)+'</td><td class="n">'+pc(ha/R.totalHa,1)+'</td><td class="n">'+fmt(b.greenHa,1)+'</td><td class="n">'+pc(b.greenHa/ha,0)+'</td></tr>'}).join('')
+    +'<tr class="total"><td>Total</td><td class="n">'+st.cells.length+'</td><td class="n">'+fmt(R.totalHa,1)+'</td><td class="n">100%</td><td class="n">'+fmt(R.greenHa,1)+'</td><td class="n">'+pc(R.greenPct,0)+'</td></tr>';
+  $('repObjects').innerHTML=st.objects?objRowsHtml(st.objects,R.totalHa):'<tr><td colspan="4" class="muted">Scan a real area on the Real map tab to count buildings, shops, colleges, malls, parking lots and trees.</td></tr>';
+  $('repObjNote').textContent=st.objects?'Counted from OpenStreetMap, which volunteers map. Some buildings, shops or trees in your area may be missing, so treat counts as a minimum.':'';
+  $('repNeed').innerHTML=needRowsHtml(R);
+  $('repSitesHead').innerHTML='<tr><th class="n">#</th><th>Cell</th><th>Position from north-west corner</th>'+(hasLL?'<th class="n">Latitude</th><th class="n">Longitude</th><th>Map</th>':'')+'<th>Land use</th><th class="n">Green now</th><th class="n">Around</th><th class="n">Needs</th><th class="n">Trees (est.)</th></tr>';
+  $('repSites').innerHTML=rows.length?rows.map(r=>'<tr><td class="n">'+r.rank+'</td><td class="mono">'+r.ref+'</td><td class="mono small">'+r.pos+'</td>'+(hasLL?'<td class="n">'+r.lat+'</td><td class="n">'+r.lon+'</td><td><a href="'+r.link+'" target="_blank" rel="noopener">Open</a></td>':'')+'<td>'+r.cls+'</td><td class="n">'+pc(r.green)+'</td><td class="n">'+pc(r.nb)+'</td><td class="n">+'+fmt(r.need*100,0)+'%</td><td class="n">'+fmt(r.trees)+'</td></tr>').join(''):'<tr><td colspan="'+(hasLL?11:8)+'" class="muted">No priority sites with the current settings.</td></tr>';
+}
+function reportText(){
+  const R=st.res,L=[];
+  L.push('TREE PLANTATION NEED ANALYSIS');
+  L.push('Study area: 5 km x 5 km ('+fmt(R.totalHa,0)+' ha), '+st.N+' x '+st.N+' grid, cells '+fmt(R.cellKm*1000)+' m wide');
+  L.push('Data: '+(st.real?'real scan centred on '+st.real.lat.toFixed(5)+', '+st.real.lon.toFixed(5)+(st.real.osmOk?' (land use and objects: OpenStreetMap)':'')+(st.real.imgOk?' (green cover: Esri satellite imagery)':' (green cover estimated from mapped green areas)'):(st.mode==='upload'?'uploaded image "'+st.fileName+'"':'generated example area (not a real place)')));
+  L.push('');L.push(summaryText());L.push('');
+  L.push('LAND USE (area ha, share, green)');
+  for(const k of presentClasses()){const b=R.byClass[k],ha=b.n*R.cellHa;L.push('- '+CLASSES[k].label+': '+fmt(ha,1)+' ha, '+pc(ha/R.totalHa,1)+', '+pc(b.greenHa/ha,0)+' green')}
+  if(st.objects){
+    L.push('');L.push('OBJECTS FOUND (OpenStreetMap)');
+    for(const o of st.objects)L.push('- '+o.label+': '+(o.count==null?'n/a':fmt(o.count))+(o.ha==null?'':', '+fmt(o.ha,1)+' ha ('+pc(o.ha/R.totalHa,1)+')'));
+  }
+  L.push('');L.push('PLANTATION NEED BY LAND USE (blocks below '+cfg.blockMin+'%)');
+  for(const k of presentClasses()){const o=R.needByClass[k];if(o)L.push('- '+CLASSES[k].label+': '+o.n+' blocks, average need +'+fmt(o.sum/o.n*100,0)+'% green cover, about '+fmt(o.trees)+' trees')}
+  L.push('');L.push('PRIORITY SITES');
+  for(const r of siteRows())L.push(r.rank+'. '+r.ref+' ('+r.pos+(r.lat?'; '+r.lat+', '+r.lon:'')+') '+r.cls+', green '+pc(r.green)+' now, around '+pc(r.nb)+', needs +'+fmt(r.need*100,0)+'%, about '+fmt(r.trees)+' trees');
+  L.push('');L.push('Need = extra green cover in percentage points of the block area. Tree counts are planning estimates ('+cfg.canopy+' m2 canopy per tree, '+cfg.blockMin+'% block minimum).');
+  return L.join('\n');
+}
+function sitesCsv(){
+  return['rank,cell,position,latitude,longitude,land_use,green_now_pct,around_green_pct,need_pct_points,trees_estimate'].concat(siteRows().map(r=>[r.rank,r.ref,r.pos.replace(/,/g,';'),r.lat,r.lon,r.cls,(r.green*100).toFixed(1),(r.nb*100).toFixed(1),(r.need*100).toFixed(1),r.trees].join(','))).join('\n');
+}
+function cellsCsv(){
+  const R=st.res;
+  return['cell,row,col,latitude,longitude,land_use,green_pct,around_green_pct,need_pct_points,trees_estimate,buildings_mapped,shops_mapped,trees_mapped,flagged,priority_rank'].concat(st.cells.map(c=>{const ll=latlon(c,R.cellKm,cfg);return[ref(c),c.r+1,c.c+1,ll?ll.lat.toFixed(5):'',ll?ll.lon.toFixed(5):'',CLASSES[c.cls].label,(c.green*100).toFixed(1),(c.nb*100).toFixed(1),(c.need*100).toFixed(1),c.trees,c.bld,c.shops,c.treesMapped,c.flag?1:0,c.rank||''].join(',')})).join('\n');
+}
+function objectsCsv(){
+  if(!st.objects)return'object,count,mapped_area_ha,share_of_area_pct\nScan a real area first,,,';
+  const R=st.res;
+  return['object,count,mapped_area_ha,share_of_area_pct'].concat(st.objects.map(o=>[o.label,o.count==null?'':o.count,o.ha==null?'':o.ha.toFixed(1),o.ha==null?'':(o.ha/R.totalHa*100).toFixed(1)].join(','))).join('\n');
+}
+function saveFile(name,text,mime){
+  try{
+    const blob=new Blob([mime==='text/csv'?'﻿'+text:text],{type:(mime||'text/plain')+';charset=utf-8'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),3000);
+    $('copyMsg').textContent=name+' downloaded.';
+  }catch(e){copyOut(text,name)}
+}
+async function copyOut(text,label){
+  const msg=$('copyMsg');
+  try{await navigator.clipboard.writeText(text);$('copyFallback').hidden=true;msg.textContent=label+' copied.'}
+  catch(e){const ta=$('fbText');ta.value=text;$('copyFallback').hidden=false;ta.focus();ta.select();msg.textContent='Copying was blocked here. The text is selected below. Press Ctrl+C.'}
+}
+
+function renderAll(){syncBars();renderSource();renderSummary();renderStats();renderNeed();renderObjects();renderSites();renderLegend();renderInfo();renderHome();renderReports();drawMap();updateOverlay()}
+
+/* ---------- axes and tools ---------- */
+function buildAxes(){
+  const N=st.N,skip=N>20?2:1;
+  let c='',r='';
+  for(let i=0;i<N;i++){c+='<span>'+(i%skip===0?String.fromCharCode(65+i):'')+'</span>';r+='<span>'+(i%skip===0?(i+1):'')+'</span>'}
+  $('colLabels').innerHTML=c;$('rowLabels').innerHTML=r;
+}
+function buildTools(){
+  const box=$('tools');box.innerHTML='';
+  const mk=(key,label,color)=>{
+    const b=document.createElement('button');b.type='button';b.className='chip';b.dataset.tool=key;b.setAttribute('aria-pressed',String(st.tool===(key||null)));
+    b.innerHTML=(color?'<span class="dot" style="background:'+color+'"></span>':'')+label;
+    b.addEventListener('click',()=>{st.tool=key||null;cv.classList.toggle('paint',!!st.tool);box.querySelectorAll('.chip').forEach(x=>x.setAttribute('aria-pressed',String((x.dataset.tool||null)===st.tool)))});
+    box.appendChild(b);
+  };
+  mk('','Inspect',null);
+  for(const k of ORDER.slice(0,6))mk(k,CLASSES[k].label,CLASSES[k].color);
+}
+
+/* ---------- map interaction ---------- */
+function cellAt(e){
+  const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)/r.width,y=(e.clientY-r.top)/r.height;
+  if(x<0||y<0||x>=1||y>=1)return -1;
+  return Math.floor(y*st.N)*st.N+Math.floor(x*st.N);
+}
+let raf=0;
+function queueRecompute(){if(raf)return;raf=requestAnimationFrame(()=>{raf=0;afterChange()})}
+function paint(i){
+  const c=st.cells[i];
+  if(!c||!st.tool||c.cls===st.tool)return;
+  c.cls=st.tool;c.manual=true;
+  if(st.mode==='sample'){const b=CLASSES[st.tool].base;c.green=b[0]+b[1]/2;drawCell(bctx,c,st.N,st.seed)}
+  queueRecompute();
+}
+let painting=false;
+cv.addEventListener('pointerdown',e=>{
+  const i=cellAt(e);if(i<0)return;
+  if(st.tool){painting=true;try{cv.setPointerCapture(e.pointerId)}catch(x){}paint(i);st.sel=i}
+  else{st.sel=i;st.hover=null;renderInfo();drawMap();renderSites()}
+});
+cv.addEventListener('pointermove',e=>{
+  const i=cellAt(e);
+  if(painting){if(i>=0)paint(i);return}
+  if(e.pointerType==='mouse'&&i>=0&&i!==st.hover){st.hover=i;renderInfo()}
+});
+const endPaint=()=>{painting=false};
+cv.addEventListener('pointerup',endPaint);cv.addEventListener('pointercancel',endPaint);
+cv.addEventListener('pointerleave',()=>{if(st.hover!=null){st.hover=null;renderInfo()}});
+cv.addEventListener('keydown',e=>{
+  const N=st.N;let i=st.sel==null?0:st.sel;
+  const r=Math.floor(i/N),c=i%N;
+  if(e.key==='ArrowRight')i=r*N+Math.min(N-1,c+1);
+  else if(e.key==='ArrowLeft')i=r*N+Math.max(0,c-1);
+  else if(e.key==='ArrowDown')i=Math.min(N-1,r+1)*N+c;
+  else if(e.key==='ArrowUp')i=Math.max(0,r-1)*N+c;
+  else if((e.key==='Enter'||e.key===' ')&&st.tool){paint(i);e.preventDefault();return}
+  else if(e.key==='Escape'){st.sel=null;renderInfo();drawMap();renderSites();return}
+  else return;
+  e.preventDefault();st.sel=i;st.hover=null;renderInfo();drawMap();renderSites();
+});
+
+/* ---------- real map (Leaflet + Esri World Imagery) ---------- */
+let lm=null,pickRect=null,siteGroup=null,cellGroup=null,poiGroup=null,rkGroup=null,cellRects=[];
+const TILE_SAT='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const TILE_STREET='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+function ensureMap(){
+  if(lm)return true;
+  if(!window.L){$('lmap').textContent='The map library could not be loaded. Check your internet connection and reload this page.';return false}
+  lm=L.map('lmap',{worldCopyJump:true}).setView([20,0],2);
+  const sat=L.tileLayer(TILE_SAT,{maxZoom:19,attribution:'Imagery © Esri, Maxar, Earthstar Geographics and the GIS User Community'});
+  const street=L.tileLayer(TILE_STREET,{maxZoom:19,attribution:'Map © Esri and contributors'});
+  sat.addTo(lm);
+  L.control.layers({'Satellite':sat,'Street map':street},null,{collapsed:true}).addTo(lm);
+  pickRect=L.rectangle([[0,0],[0,0]],{color:'#f2a900',weight:2,dashArray:'6 5',fill:false,interactive:false}).addTo(lm);
+  siteGroup=L.layerGroup().addTo(lm);cellGroup=L.layerGroup().addTo(lm);poiGroup=L.layerGroup();rkGroup=L.layerGroup();
+  lm.on('move zoom',updatePick);
+  updatePick();
+  return true;
+}
+function updatePick(){
+  if(!lm)return;
+  const c=lm.getCenter();
+  if(Math.abs(c.lat)>80){return}
+  const b=bboxFor(c.lat,c.lng);
+  pickRect.setBounds([[b.s,b.w],[b.n,b.e]]);
+  $('pickCoord').textContent=c.lat.toFixed(5)+', '+(((c.lng+540)%360)-180).toFixed(5);
+}
+function goTo(lat,lon){
+  if(!ensureMap())return;
+  if(!isFinite(lat)||!isFinite(lon)||Math.abs(lat)>80||Math.abs(lon)>180){setNote('Latitude must be between −80 and 80, and longitude between −180 and 180.',true);return}
+  const b=bboxFor(lat,lon);
+  lm.fitBounds([[b.s,b.w],[b.n,b.e]],{padding:[28,28]});
+  setNote('Move the map so the dashed square covers your study area, then press Scan.',false);
+}
+async function findPlace(q){
+  q=q.trim();if(!q)return;
+  const m=q.match(/^(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)$/);
+  if(m){goTo(parseFloat(m[1]),parseFloat(m[2]));return}
+  setNote('Searching…',false);
+  try{
+    const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q));
+    const j=await r.json();
+    if(!j.length){setNote('No place found for that search. Try a nearby town, or type latitude, longitude.',true);return}
+    goTo(parseFloat(j[0].lat),parseFloat(j[0].lon));
+    setNote('Found: '+j[0].display_name+'. Move the map so the dashed square covers your study area, then press Scan.',false);
+  }catch(e){setNote('The place search did not work (offline or blocked). Pan the map by hand, or type latitude, longitude.',true)}
+}
+function stitch(b,z,progress){
+  const p0=mercPx(b.w,b.n,z),p1=mercPx(b.e,b.s,z),x0=p0[0],y0=p0[1],x1=p1[0],y1=p1[1];
+  const tx0=Math.floor(x0/256),ty0=Math.floor(y0/256),tx1=Math.floor((x1-1e-6)/256),ty1=Math.floor((y1-1e-6)/256);
+  const cols=tx1-tx0+1,rows=ty1-ty0+1,total=cols*rows;
+  if(total>200)return Promise.reject(new Error('That area needs too many image tiles. Choose Standard detail in Settings.'));
+  const big=document.createElement('canvas');big.width=cols*256;big.height=rows*256;
+  const g=big.getContext('2d');
+  let done=0,failed=0;const jobs=[];
+  for(let ty=ty0;ty<=ty1;ty++)for(let tx=tx0;tx<=tx1;tx++){
+    jobs.push(new Promise(res=>{
+      const im=new Image();im.crossOrigin='anonymous';
+      im.onload=()=>{g.drawImage(im,(tx-tx0)*256,(ty-ty0)*256);done++;progress(done+failed,total);res()};
+      im.onerror=()=>{failed++;progress(done+failed,total);res()};
+      im.src='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'+z+'/'+ty+'/'+tx;
+    }));
+  }
+  return Promise.all(jobs).then(()=>{
+    if(failed>total*.1)throw new Error('Satellite tiles could not be loaded ('+failed+' of '+total+' failed). Check your internet connection. If the map shows imagery, the browser may be blocking pixel access.');
+    const crop=document.createElement('canvas');crop.width=S;crop.height=S;
+    crop.getContext('2d').drawImage(big,x0-tx0*256,y0-ty0*256,x1-x0,y1-y0,0,0,S,S);
+    return crop;
+  });
+}
+const OVP=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter','https://overpass.private.coffee/api/interpreter'];
+async function overpass(query){
+  let last=null;
+  for(const url of OVP){
+    try{
+      const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),75000);
+      const res=await fetch(url,{method:'POST',body:'data='+encodeURIComponent(query),headers:{'Content-Type':'application/x-www-form-urlencoded'},signal:ctl.signal});
+      clearTimeout(to);
+      if(!res.ok)throw new Error('server answered '+res.status);
+      const j=await res.json();
+      if(j.remark&&!(j.elements&&j.elements.length)&&/error|timeout|memory/i.test(j.remark))throw new Error(j.remark);
+      return j;
+    }catch(e){last=e}
+  }
+  throw new Error('the map data servers did not answer ('+((last&&last.message)||'unknown error')+')');
+}
+async function loadOsm(b,say){
+  const bb=[b.s,b.w,b.n,b.e].map(v=>v.toFixed(6)).join(',');
+  const q1='[out:json][timeout:60];('
+    +'nwr["amenity"~"^(college|university|school|parking)$"]('+bb+');'
+    +'nwr["shop"]('+bb+');'
+    +'nwr["leisure"~"^(park|garden|playground|pitch|recreation_ground|nature_reserve|golf_course)$"]('+bb+');'
+    +'nwr["landuse"~"^(forest|grass|meadow|recreation_ground|village_green|orchard|cemetery|allotments|residential|commercial|retail|industrial)$"]('+bb+');'
+    +'nwr["natural"~"^(wood|scrub|grassland)$"]('+bb+');'
+    +'node["natural"="tree"]('+bb+');'
+    +');out geom;';
+  say('areas, shops, parking, trees');
+  const parsed=parseOsm(await overpass(q1));
+  const counts={};for(const p of parsed.pts)counts[p.cat]=(counts[p.cat]||0)+1;
+  let bcenters=[],bcount=null;
+  try{
+    say('buildings');
+    const j2=await overpass('[out:json][timeout:60];way["building"]('+bb+');out ids center;');
+    bcount=0;
+    for(const e of j2.elements||[]){bcount++;if(e.center)bcenters.push([e.center.lat,e.center.lon])}
+  }catch(e){bcount=null;bcenters=[]}
+  return{parsed,counts,bcenters,bcount};
+}
+const SCAN_NAMES=['Satellite imagery (Esri)','Land use and objects (OpenStreetMap)','Analysis'];
+const esc=s=>String(s).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+function setStep(i,state,msg){
+  const li=$('scanLog').children[i];if(!li)return;
+  const cls={run:'no',ok:'ok',bad:'bad'}[state],word={run:'Running',ok:'Done',bad:'Failed'}[state];
+  li.innerHTML='<span class="st '+cls+'">'+word+'</span><span>'+SCAN_NAMES[i]+(msg?' · '+esc(msg):'')+'</span>';
+}
+async function scanArea(){
+  if(!ensureMap())return;
+  const c=lm.getCenter(),lat=c.lat,lon=((c.lng+540)%360)-180;
+  if(Math.abs(lat)>80){setNote('Move the map closer to the area you want to scan first.',true);return}
+  if(lm.getZoom()<8){setNote('Zoom in on your study area first. Search a place, or type latitude, longitude.',true);return}
+  const btn=$('btnAnalyse');btn.disabled=true;
+  const log=$('scanLog');log.hidden=false;log.innerHTML='<li></li><li></li><li></li>';
+  setStep(0,'run');setStep(1,'run');
+  const b=bboxFor(lat,lon);
+  let img=null,osm=null;
+  const pImg=stitch(b,cfg.zoom,(d,t)=>setStep(0,'run',d+' of '+t+' tiles'))
+    .then(crop=>{const data=crop.getContext('2d').getImageData(0,0,S,S).data;img={crop,data};setStep(0,'ok')})
+    .catch(e=>setStep(0,'bad',e&&e.name==='SecurityError'?'the browser blocked reading the image pixels, so green cover is estimated from map data':((e&&e.message)||'could not load')));
+  const pOsm=loadOsm(b,m=>setStep(1,'run',m))
+    .then(o=>{osm=o;setStep(1,'ok',fmt(o.parsed.pts.length)+' mapped objects'+(o.bcount==null?', buildings unavailable':', '+fmt(o.bcount)+' buildings'))})
+    .catch(e=>setStep(1,'bad',(e&&e.message)||'could not load'));
+  await Promise.all([pImg,pOsm]);
+  if(!img&&!osm){setNote('Nothing could be loaded. Check your internet connection and try again.',true);btn.disabled=false;return}
+  setStep(2,'run');
+  st.img=img?img.data:null;
+  if(img)bctx.drawImage(img.crop,0,0);else{bctx.fillStyle='#2e3330';bctx.fillRect(0,0,S,S)}
+  st.osmRaw=osm;st.mode='upload';st.real={lat,lon,b,imgOk:!!img,osmOk:!!osm};
+  st.fileName='Scan at '+lat.toFixed(4)+', '+lon.toFixed(4);
+  st.sel=null;st.hover=null;st.cells=[];
+  cfg.lat=lat.toFixed(5);cfg.lon=lon.toFixed(5);fillForm();saveCfg();
+  try{
+    buildFromScan();
+    setStep(2,'ok',fmt(st.res.flagged.length)+' blocks need trees');
+    lm.fitBounds([[b.s,b.w],[b.n,b.e]],{padding:[24,24]});
+  }catch(e){setStep(2,'bad',(e&&e.message)||'analysis failed')}
+  btn.disabled=false;
+}
+function buildFromScan(){
+  const N=st.N,real=st.real,old=st.cells,cellM2=Math.pow(5000/N,2);
+  const gi=st.img?greenFractions(st.img,S,N,cfg.exg):null;
+  const scan=st.osmRaw?classifyCells(N,real.b,st.osmRaw.parsed,st.osmRaw.bcenters,cellM2):null;
+  st.cells=Array.from({length:N*N},(_,k)=>{
+    const o=scan?scan.cells[k]:null,prev=(old.length===N*N&&old[k].manual)?old[k]:null;
+    const green=gi?gi[k]:(o?o.gOsm:0);
+    const cls=prev?prev.cls:(o?o.cls:(green>=.5?'garden':'builtup'));
+    return{r:Math.floor(k/N),c:k%N,dc:0,green,nb:0,flag:false,trees:0,rank:0,need:0,manual:!!prev,cls,bld:o?o.bld:0,shops:o?(o.cnt.shop||0):0,treesMapped:o?(o.cnt.tree||0):0};
+  });
+  st.objects=scan?objectRows(st.osmRaw.counts,st.osmRaw.bcount,scan.cov,scan.totalPts,2500):null;
+  afterChange();
+}
+function cellBounds(c){
+  const b=st.real.b,dLon=(b.e-b.w)/st.N,dLat=(b.n-b.s)/st.N;
+  return[[b.n-(c.r+1)*dLat,b.w+c.c*dLon],[b.n-c.r*dLat,b.w+(c.c+1)*dLon]];
+}
+function cellTip(c){
+  let t=ref(c)+' · '+CLASSES[c.cls].label+' · green '+pc(c.green);
+  if(c.flag)t+=' · needs +'+fmt(c.need*100,0)+'% (about '+fmt(c.trees)+' trees)';
+  return t;
+}
+const POI_COL={shop:'#d1517a',mall:'#8a5bb5',college:'#4a78c2',school:'#4a78c2',parking:'#6f7b86',tree:'#2e9e4f'};
+const POI_R={shop:3,mall:6,college:6,school:4,parking:4,tree:2};
+const POI_CAP={shop:3000,tree:2000};
+function updateOverlay(){
+  if(!lm||!cellGroup)return;
+  siteGroup.clearLayers();cellGroup.clearLayers();rkGroup.clearLayers();poiGroup.clearLayers();cellRects=[];
+  if(!st.real||!st.res)return;
+  const b=st.real.b;
+  L.rectangle([[b.s,b.w],[b.n,b.e]],{color:'#2e9e4f',weight:2,fill:false,interactive:false}).addTo(siteGroup);
+  st.cells.forEach((c,i)=>{
+    const r=L.rectangle(cellBounds(c),{weight:.6,color:'#ffffff',opacity:.35,fillOpacity:0}).addTo(cellGroup);
+    r.bindTooltip(()=>cellTip(c),{sticky:true});
+    r.on('click',()=>{if(st.tool)paint(i);st.sel=i;st.hover=null;renderInfo();renderSites();drawMap();styleCells()});
+    cellRects[i]=r;
+  });
+  for(const c of st.res.top){
+    const cb=cellBounds(c);
+    L.marker([(cb[0][0]+cb[1][0])/2,(cb[0][1]+cb[1][1])/2],{icon:L.divIcon({className:'',html:'<span class="rk">'+c.rank+'</span>',iconSize:[22,22]}),interactive:false}).addTo(rkGroup);
+  }
+  if(st.osmRaw){
+    const seen={};
+    for(const p of st.osmRaw.parsed.pts){
+      if(!POI_COL[p.cat])continue;
+      seen[p.cat]=(seen[p.cat]||0)+1;
+      if(POI_CAP[p.cat]&&seen[p.cat]>POI_CAP[p.cat])continue;
+      L.circleMarker([p.lat,p.lon],{radius:POI_R[p.cat],color:'#ffffff',weight:.8,fillColor:POI_COL[p.cat],fillOpacity:.95,interactive:false}).addTo(poiGroup);
+    }
+  }
+  styleCells();
+}
+function styleCells(){
+  if(!lm||!cellRects.length)return;
+  const thr=cfg.blockMin/100,ml=st.mlayer;
+  st.cells.forEach((c,i)=>{
+    const r=cellRects[i];if(!r)return;
+    let fc='#000000',fo=0;
+    if(ml==='need'){if(c.flag){fc='#f2a900';fo=.15+.6*Math.min(1,c.need/thr)}}
+    else if(ml==='landuse'){fc=CLASSES[c.cls].color;fo=.5}
+    else if(ml==='green'){fc='#2e9e4f';fo=.08+.72*Math.min(1,c.green)}
+    const sel=st.sel===i,top=ml==='need'&&c.rank>0;
+    r.setStyle({fillColor:fc,fillOpacity:fo,color:sel?'#ffffff':(top?'#f2a900':'#ffffff'),weight:sel?3:(top?2:.6),opacity:sel?1:(top?1:.35)});
+    if(sel)r.bringToFront();
+  });
+  if(ml==='need'){if(!lm.hasLayer(rkGroup))lm.addLayer(rkGroup)}else lm.removeLayer(rkGroup);
+  if(ml==='objects'){if(!lm.hasLayer(poiGroup))lm.addLayer(poiGroup)}else lm.removeLayer(poiGroup);
+}
+function mapLegend(){
+  const next='<span><span class="swatch" style="border:2px dashed #f2a900"></span>Next area to scan</span>';
+  if(!st.real)return next;
+  const done='<span><span class="swatch" style="border:2px solid #2e9e4f"></span>Scanned area</span>',ml=st.mlayer;
+  if(ml==='need')return next+done+'<span><span class="swatch" style="background:rgba(242,169,0,.3)"></span>Needs trees (darker = more)</span><span><span class="dot" style="background:#f2a900"></span>Ranked priority site</span>';
+  if(ml==='landuse')return next+done+presentClasses().map(k=>'<span>'+dotFor(k)+CLASSES[k].label+'</span>').join('');
+  if(ml==='green')return next+done+'<span><span class="swatch" style="background:rgba(46,158,79,.15)"></span>Low green</span><span><span class="swatch" style="background:rgba(46,158,79,.8)"></span>High green</span>';
+  if(ml==='objects')return next+done+[['shop','Shop'],['mall','Mall'],['college','College / school'],['parking','Parking'],['tree','Tree']].map(x=>'<span><span class="dot" style="background:'+POI_COL[x[0]]+';border-radius:50%"></span>'+x[1]+'</span>').join('')+'<span>Buildings are counted but not drawn.</span>';
+  return next+done;
+}
+function syncBars(){
+  const m=st.mview==='map',hasReal=!!st.real,empty=m&&!hasReal;
+  $('lmap').hidden=!m;cv.hidden=m;$('pickBar').hidden=!m;
+  $('layerBar').hidden=m;$('mapLayerBar').hidden=!(m&&hasReal);
+  $('toolsBox').hidden=empty;
+  $('frame').classList.toggle('mapmode',m);
+  $('emptyPanel').hidden=!empty;$('dataPanels').hidden=empty;
+}
+function setMView(v){
+  st.mview=v;
+  const radio=document.querySelector('input[name="mview"][value="'+v+'"]');if(radio)radio.checked=true;
+  syncBars();
+  if(v==='map'&&ensureMap()){setTimeout(()=>{lm.invalidateSize();updatePick();updateOverlay()},0)}
+  renderSource();renderLegend();
+}
+document.querySelectorAll('input[name="mlayer"]').forEach(r=>r.addEventListener('change',()=>{if(r.checked){st.mlayer=r.value;styleCells();renderLegend()}}));
+document.querySelectorAll('input[name="mview"]').forEach(r=>r.addEventListener('change',()=>{if(r.checked)setMView(r.value)}));
+$('placeForm').addEventListener('submit',e=>{e.preventDefault();findPlace($('placeQ').value)});
+$('btnAnalyse').addEventListener('click',scanArea);
+
+/* ---------- navigation ---------- */
+function showView(v){
+  st.view=v;
+  for(const id of['home','map','reports','settings','about'])$('view-'+id).hidden=(id!==v);
+  document.querySelectorAll('#nav button').forEach(b=>{if(b.dataset.view===v)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
+  if(v==='map'&&st.mview==='map'&&lm)setTimeout(()=>{lm.invalidateSize();updatePick()},0);
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.view)));
+document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showView(b.dataset.go)));
+
+/* ---------- controls ---------- */
+document.querySelectorAll('input[name="layer"]').forEach(r=>r.addEventListener('change',()=>{if(r.checked){st.layer=r.value;renderLegend();drawMap()}}));
+$('gridToggle').addEventListener('change',e=>{st.grid=e.target.checked;drawMap()});
+$('btnUpload').addEventListener('click',()=>$('fileIn').click());
+$('fileIn').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(f)useImage(f);e.target.value=''});
+$('btnSample').addEventListener('click',()=>{if(st.mode==='upload'){st.seed=st.seed}else{st.seed+=1}newSample()});
+$('copyReport').addEventListener('click',()=>copyOut(reportText(),'Report text'));
+$('dlCells').addEventListener('click',()=>saveFile('green-cover-all-cells.csv',cellsCsv(),'text/csv'));
+$('dlSites').addEventListener('click',()=>saveFile('priority-sites.csv',sitesCsv(),'text/csv'));
+$('dlObjects').addEventListener('click',()=>saveFile('objects-found.csv',objectsCsv(),'text/csv'));
+$('dlReport').addEventListener('click',()=>saveFile('plantation-need-report.txt',reportText(),'text/plain'));
+
+/* settings form */
+function fillForm(){
+  $('sN').value=String(cfg.N);
+  $('sBlock').value=cfg.blockMin;$('oBlock').textContent=cfg.blockMin+'%';
+  $('sOverall').value=cfg.overall;$('oOverall').textContent=cfg.overall+'%';
+  $('sTopK').value=cfg.topK;$('oTopK').textContent=cfg.topK;
+  $('sCanopy').value=cfg.canopy;
+  $('sZoom').value=String(cfg.zoom);$('sExg').value=cfg.exg;$('oExg').textContent=Number(cfg.exg).toFixed(2);
+  $('sLat').value=cfg.lat;$('sLon').value=cfg.lon;
+}
+function onCfg(rebuild){
+  cfg=sanitize(cfg);saveCfg();
+  if(rebuild==='grid'){st.N=cfg.N;st.sel=null;st.hover=null;buildAxes();if(st.mode==='upload'){st.cells=[];buildFromImage()}else newSample()}
+  else if(rebuild==='image'&&st.mode==='upload')buildFromImage();
+  else afterChange();
+}
+$('sN').addEventListener('change',e=>{cfg.N=Number(e.target.value);onCfg('grid')});
+$('sBlock').addEventListener('input',e=>{cfg.blockMin=Number(e.target.value);$('oBlock').textContent=cfg.blockMin+'%';onCfg()});
+$('sOverall').addEventListener('input',e=>{cfg.overall=Number(e.target.value);$('oOverall').textContent=cfg.overall+'%';onCfg()});
+$('sTopK').addEventListener('input',e=>{cfg.topK=Number(e.target.value);$('oTopK').textContent=cfg.topK;onCfg()});
+$('sCanopy').addEventListener('input',e=>{const v=Number(e.target.value);if(isFinite(v)&&v>=5){cfg.canopy=v;onCfg()}});
+$('sExg').addEventListener('input',e=>{cfg.exg=Number(e.target.value);$('oExg').textContent=cfg.exg.toFixed(2);onCfg('image')});
+$('sZoom').addEventListener('change',e=>{cfg.zoom=Number(e.target.value);onCfg()});
+$('sLat').addEventListener('input',e=>{cfg.lat=e.target.value;onCfg()});
+$('sLon').addEventListener('input',e=>{cfg.lon=e.target.value;onCfg()});
+$('settingsForm').addEventListener('submit',e=>e.preventDefault());
+$('resetCfg').addEventListener('click',()=>{const gridChanged=cfg.N!==DEF.N;cfg=sanitize(DEF);fillForm();onCfg(gridChanged?'grid':'image')});
+
+/* ---------- start ---------- */
+fillForm();buildAxes();buildTools();buildHomeClasses();newSample();setMView('map');showView('home');
+})();
+</script>
+</body>
+</html>
